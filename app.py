@@ -208,14 +208,21 @@ def download_file(job_id):
                 
                 # Check if this should be a download or just played in browser
                 if request.args.get('attachment'):
-                    return send_file(file_path, 
-                                    mimetype=mime_type,
-                                    as_attachment=True, 
-                                    download_name=filename.replace(f"processed_{job_id}_", ""))
+                    # For Flask 2.0.1, the parameter name is 'mimetype', not 'content_type'
+                    return send_file(
+                        file_path, 
+                        mimetype=mime_type,
+                        as_attachment=True, 
+                        attachment_filename=filename.replace(f"processed_{job_id}_", "")
+                    )
                 else:
                     return send_file(file_path, mimetype=mime_type)
         
         return jsonify({'error': 'File not found'}), 404
+        
+    except Exception as e:
+        print(f"Error serving file: {str(e)}")
+        return jsonify({'error': f'Error serving file: {str(e)}'}), 500
         
     except Exception as e:
         print(f"Error serving file: {str(e)}")
