@@ -18,7 +18,6 @@ import json
 import uuid
 import librosa
 import soundfile as sf
-import numpy as np
 import threading
 from werkzeug.utils import secure_filename
 
@@ -192,18 +191,35 @@ def check_progress():
 
 @app.route('/download/<job_id>', methods=['GET'])
 def download_file(job_id):
-    # Find the file associated with this job ID
-    for filename in os.listdir(PROCESSED_FOLDER):
-        if filename.startswith(f"processed_{job_id}_"):
-            file_path = os.path.join(PROCESSED_FOLDER, filename)
-            
-            # Check if this should be a download or just played in browser
-            if request.args.get('attachment'):
-                return send_file(file_path, as_attachment=True, download_name=filename.replace(f"processed_{job_id}_", ""))
-            else:
-                return send_file(file_path)
-    
-    return jsonify({'error': 'File not found'}), 404
+    try:
+        # Find the file associated with this job ID
+        for filename in os.listdir(PROCESSED_FOLDER):
+            if filename.startswith(f"processed_{job_id}_"):
+                file_path = os.path.join(PROCESSED_FOLDER, filename)
+                
+                # Determine mime type based on file extension
+                mime_type = "audio/mpeg"  # Default to MP3
+                if filename.lower().endswith('.wav'):
+                    mime_type = "audio/wav"
+                elif filename.lower().endswith('.ogg'):
+                    mime_type = "audio/ogg"
+                elif filename.lower().endswith('.flac'):
+                    mime_type = "audio/flac"
+                
+                # Check if this should be a download or just played in browser
+                if request.args.get('attachment'):
+                    return send_file(file_path, 
+                                    mimetype=mime_type,
+                                    as_attachment=True, 
+                                    download_name=filename.replace(f"processed_{job_id}_", ""))
+                else:
+                    return send_file(file_path, mimetype=mime_type)
+        
+        return jsonify({'error': 'File not found'}), 404
+        
+    except Exception as e:
+        print(f"Error serving file: {str(e)}")
+        return jsonify({'error': f'Error serving file: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
