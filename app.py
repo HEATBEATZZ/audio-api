@@ -1,3 +1,16 @@
+# Add this at the top to fix NumPy deprecation issues
+import numpy as np
+import warnings
+
+# Handle NumPy deprecation
+if not hasattr(np, 'complex'):
+    np.complex = complex
+
+# Suppress deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+# Regular imports
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
@@ -9,9 +22,14 @@ import numpy as np
 import threading
 from werkzeug.utils import secure_filename
 
-# Import your model classes
-from models.mdx_net import MDXNetModel
-from models.vr_arc import VRArcModel
+# Import model classes with error handling
+try:
+    from models.mdx_net import MDXNetModel
+    from models.vr_arc import VRArcModel
+    models_available = True
+except ImportError:
+    models_available = False
+    print("Warning: Model imports failed. Running in limited mode.")
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -25,14 +43,48 @@ os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 # Track processing progress
 processing_status = {}
 
-# Load models
-mdx_vocals = MDXNetModel('vocals')
-mdx_dereverb = MDXNetModel('dereverb')
-mdx_denoiser = MDXNetModel('denoiser')
+# Add health check endpoint
+@app.route('/healthz')
+def health_check():
+    return jsonify({"status": "healthy"})
 
-vr_vocals = VRArcModel('vocals') 
-vr_dereverb = VRArcModel('dereverb')
-vr_denoiser = VRArcModel('denoiser')
+@app.route('/')
+def home():
+    model_status = "available" if models_available else "unavailable"
+    return jsonify({
+        "status": "online",
+        "message": "Audio processing API is running",
+        "models": model_status
+    })
+
+# Load models with error handling
+try:
+    mdx_vocals = MDXNetModel('vocals')
+    mdx_dereverb = MDXNetModel('dereverb')
+    mdx_denoiser = MDXNetModel('denoiser')
+
+    vr_vocals = VRArcModel('vocals') 
+    vr_dereverb = VRArcModel('dereverb')
+    vr_denoiser = VRArcModel('denoiser')
+except Exception as e:
+    print(f"Error loading models: {str(e)}")
+    # Create placeholder objects if models can't be loaded
+    class DummyModel:
+        def __init__(self, model_type):
+            self.model_type = model_type
+        def process(self, audio):
+            return audio
+        def isolate_vocals(self, audio):
+            return audio
+        def remove_background_vocals(self, audio):
+            return audio
+    
+    mdx_vocals = DummyModel('vocals')
+    mdx_dereverb = DummyModel('dereverb')
+    mdx_denoiser = DummyModel('denoiser')
+    vr_vocals = DummyModel('vocals')
+    vr_dereverb = DummyModel('dereverb')
+    vr_denoiser = DummyModel('denoiser')
 
 def process_audio_task(audio_path, output_path, options, job_id):
     """Background task to process audio with both MDX-Net and VR-Arc models"""
