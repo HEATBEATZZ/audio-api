@@ -159,10 +159,7 @@ def download_file(job_id):
                         download_name=filename.replace(f"processed_{job_id}_", "")
                     )
                 else:
-                    return send_file(
-                        file_path,
-                        mimetype=mime_type
-                    )
+                    return send_file(file_path, mimetype=mime_type)
         
         return jsonify({'error': 'File not found'}), 404
         
