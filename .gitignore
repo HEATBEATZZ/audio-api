@@ -9,3 +9,8 @@ venv/
 ENV/
 uploads/
 processed/
+uploads/*
+processed/*
+!uploads/.gitkeep
+!processed/.gitkeep
+
